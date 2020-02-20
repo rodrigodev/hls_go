@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hls_go
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: hls_go
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hls_go
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: hls_go
+  template:
+    metadata:
+      labels:
+        app: hls_go
+    spec:
+      containers:
+        - name: hls_go
+          image: rodrigodev/hls_go:latest
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 8080
