@@ -6,94 +6,81 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/google/uuid"
 	"github.com/xfrr/goffmpeg/transcoder"
 )
 
-const mediaRoot = "static/media"
-const outputFile = "test.m3u8"
-const uploadDir = "upload/"
+const mediaPath = "media"
+const uploadPath = "upload"
+const indexFileName = "index.m3u8"
 const maxMemory = 32 << 20
 
-func mainHandler(w http.ResponseWriter, r *http.Request) {
+func getMediaBase(mId int) string {
+	return fmt.Sprintf("%s/%d", mediaPath, mId)
+}
+
+func videoEmbedHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "static/index.html")
 }
 
-func streamHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-
-	mId, err := strconv.Atoi(vars["mId"])
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	segName, ok := vars["segName"]
-	if !ok {
-		mediaBase := getMediaBase(mId)
-		m3u8Name := "index.m3u8"
-		serveHlsM3u8(w, r, mediaBase, m3u8Name)
-	} else {
-		mediaBase := getMediaBase(mId)
-		serveHlsTs(w, r, mediaBase, segName)
-	}
-}
-
-func getMediaBase(mId int) string {
-	return fmt.Sprintf("%s/%d", mediaRoot, mId)
-}
-
-func serveHlsM3u8(w http.ResponseWriter, r *http.Request, mediaBase, m3u8Name string) {
-	log.Print("m3u8 hit")
-
-	mediaFile := fmt.Sprintf("%s/hls/%s", mediaBase, m3u8Name)
-	http.ServeFile(w, r, mediaFile)
-	w.Header().Set("Content-Type", "application/x-mpegURL")
-}
-
-func serveHlsTs(w http.ResponseWriter, r *http.Request, mediaBase, segName string) {
-	log.Printf("segment hit %s", segName)
-
-	mediaFile := fmt.Sprintf("%s/hls/%s", mediaBase, segName)
-	http.ServeFile(w, r, mediaFile)
-	w.Header().Set("Content-Type", "video/MP2T")
-}
-
-func mainUpload(w http.ResponseWriter, r *http.Request)  {
+func uploadFormHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "static/upload.html")
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(maxMemory)
-	file, handler, err := r.FormFile("uploadfile")
+	err := r.ParseMultipartForm(maxMemory)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer file.Close()
+
 	fmt.Fprintf(w, "%v", handler.Header)
-	f, err := os.OpenFile(uploadDir + handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+
+	uploadPath := fmt.Sprintf("%s/%s", uploadPath, handler.Filename)
+
+	f, err := os.OpenFile(uploadPath, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer f.Close()
-	io.Copy(f, file)
+	_, err = io.Copy(f, file)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	go func(path string) {
-		transcodeToHls(path)
-	}(handler.Filename)
-
-	return
+	transcodeToHls(handler.Filename)
 }
 
-func transcodeToHls(p string) {
+func transcodeToHls(filePath string) {
 	trans := new(transcoder.Transcoder)
 
-	err := trans.Initialize(p, uploadDir + outputFile)
+	id, err := uuid.NewUUID()
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	m3u8Path := fmt.Sprintf("%s/%s", mediaPath, id)
+	m3u8File := fmt.Sprintf("%s/%s", m3u8Path, indexFileName)
+	err = os.MkdirAll(m3u8Path, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print(m3u8File)
+
+	err = trans.Initialize(filePath, m3u8File)
+	if err != nil {
+		log.Print("Fail init")
 		log.Fatal(err)
 	}
 
@@ -106,6 +93,7 @@ func transcodeToHls(p string) {
 
 	err = <-done
 	if err != nil {
+		log.Print("Fail Processing")
 		log.Fatal(err)
 	}
 }
