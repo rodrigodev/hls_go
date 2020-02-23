@@ -27,4 +27,6 @@ RUN chown -R app:app ./
 
 USER app
 
-CMD ["./hls_go"]
+EXPOSE 8080
+
+ENTRYPOINT ["./hls_go"]

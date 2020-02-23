@@ -14,6 +14,13 @@ build: test
 build-container:
 	docker build -t $(DOCKER_IMAGE_NAME):$(VERSION) .
 
+build-clear:
+	docker stop hls_container
+	docker rm hls_container
+
+run-container:
+	docker run -d --name hls_container -p 8080:8080 --network="host" rodrigodev/hls_go:latest
+
 run:
 	go run pkg/* --level=debug
 
