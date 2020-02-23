@@ -26,6 +26,7 @@ func serveHlsTs(w http.ResponseWriter, r *http.Request, mediaBase, segName strin
 }
 
 func streamHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("handler hit")
 	vars := mux.Vars(r)
 
 	mId, err := strconv.Atoi(vars["mId"])

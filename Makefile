@@ -9,10 +9,13 @@ VERSION:=0.1
 default: build
 
 build: test
-	go build -o ./hls_go ./
+	go build -o ./hls_go ./pkg
 
 build-container:
 	docker build -t $(DOCKER_IMAGE_NAME):$(VERSION) .
+
+run:
+	go run pkg/* --level=debug
 
 push-container:
 	docker tag $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_NAME):latest

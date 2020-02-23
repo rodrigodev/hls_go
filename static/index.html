@@ -16,13 +16,13 @@
     var video = document.getElementById('video');
     if(Hls.isSupported()) {
         var hls = new Hls();
-        hls.loadSource('http://127.0.0.1:8000/media/1/stream/');
+        hls.loadSource('http://127.0.0.1:8080/media/1/stream/');
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED,function() {
             video.play();
         });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = 'http://127.0.0.1:8000/media/1/stream/';
+        video.src = 'http://127.0.0.1:8080/media/1/stream/';
         video.addEventListener('loadedmetadata',function() {
             video.play();
         });
