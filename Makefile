@@ -19,7 +19,7 @@ build-clear:
 	docker rm hls_container
 
 run-container:
-	docker run -d --name hls_container -p 8080:8080 --network="host" rodrigodev/hls_go:latest
+	docker run -p 8080:8080 rodrigodev/hls_go:$(VERSION)
 
 run:
 	go run pkg/* --level=debug

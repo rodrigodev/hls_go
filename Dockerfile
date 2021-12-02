@@ -1,32 +1,29 @@
-FROM golang:1.13 as builder
+FROM golang:1.16-alpine as build
 
-RUN mkdir -p /hls_go/
 
-WORKDIR /hls_go
+LABEL Maintainer="Rodrigo Carneiro <rodrigo.carneiro.dev@gmail.com>"
+
+ARG COMMIT='local'
+ARG TIMESTAMP='local'
+
+WORKDIR /go/src/github.com/rodrigodev/hls_go
 
 COPY . .
 
-RUN go mod download
+RUN go mod vendor
 
-RUN go test -v -race ./...
+RUN apk update add ca-certificates && \
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -mod vendor -ldflags "-s -w -X 'main.githash=${COMMIT}' -X 'main.buildstamp=${TIMESTAMP}'" -o /app ./pkg
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o bin/hls_go pkg/*
+FROM scratch
+#FROM alpine:3.4
 
-FROM alpine:3.10
-
-RUN addgroup -S app \
-    && adduser -S -g app app \
-    && apk --no-cache add \
-    curl openssl netcat-openbsd
-
-WORKDIR /home/app
-
-COPY --from=builder /hls_go/bin/hls_go .
-COPY --from=builder /hls_go/bin/hls_go /usr/local/bin/hls_go
-RUN chown -R app:app ./
-
-USER app
+#/go/src/github.com/rodrigodev/hls_go
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /go/src/github.com/rodrigodev/hls_go/static static
+COPY --from=build /go/src/github.com/rodrigodev/hls_go/media media
+COPY --from=build /app app
 
 EXPOSE 8080
 
-ENTRYPOINT ["./hls_go"]
+ENTRYPOINT ["./app"]
